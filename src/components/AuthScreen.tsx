@@ -14,6 +14,10 @@ export function AuthScreen({ onLogin }) {
   const [showLogin, setShowLogin] = useState(false);
   const [showRegister, setShowRegister] = useState(false);
   const [error, setError] = useState('');
+<<<<<<< HEAD
+=======
+  const [success, setSuccess] = useState('');
+>>>>>>> 28e3f874c115286746c16f0076cc7caf56892f7e
 
   const handleEmailSubmit = () => {
     if (!email.endsWith('@jklu.edu.in')) {
@@ -24,6 +28,7 @@ export function AuthScreen({ onLogin }) {
     setShowLogin(true);
   };
 
+<<<<<<< HEAD
   const handleRegister = async () => {
     // Clear previous errors
     setError('');
@@ -75,6 +80,8 @@ export function AuthScreen({ onLogin }) {
     }
   };
 
+=======
+>>>>>>> 28e3f874c115286746c16f0076cc7caf56892f7e
   const handleLogin = async () => {
     if (!password) {
       setError('Please enter your password');
@@ -90,6 +97,7 @@ export function AuthScreen({ onLogin }) {
     }
   };
 
+<<<<<<< HEAD
   if (showRegister) {
     return (
       <div className="p-6 min-h-screen flex flex-col justify-center">
@@ -155,6 +163,31 @@ export function AuthScreen({ onLogin }) {
   }
 
   if (!showLogin) {
+=======
+  const handleRegister = async () => {
+    if (!name || !password) {
+      setError('Please fill in all required fields');
+      return;
+    }
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters long');
+      return;
+    }
+    try {
+      const { token, user } = await register(name, email, password, phone);
+      setAuthToken(token);
+      setError('');
+      setSuccess(`Welcome ${user.name}! Your account has been created successfully.`);
+      setTimeout(() => {
+        onLogin();
+      }, 2000);
+    } catch (e: any) {
+      setError(e?.message || 'Registration failed');
+    }
+  };
+
+  if (!showLogin && !showRegister) {
+>>>>>>> 28e3f874c115286746c16f0076cc7caf56892f7e
     return (
       <div className="p-6 min-h-screen flex flex-col">
         {/* Logo and Header */}
@@ -217,6 +250,7 @@ export function AuthScreen({ onLogin }) {
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
+<<<<<<< HEAD
             <div className="space-y-2">
               <Button onClick={handleEmailSubmit} className="w-full">
                 Sign In
@@ -230,6 +264,19 @@ export function AuthScreen({ onLogin }) {
                 Create New Account
               </Button>
             </div>
+=======
+            <Button onClick={handleEmailSubmit} className="w-full">
+              Continue
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowRegister(true)} 
+              className="w-full"
+            >
+              <UserPlus className="h-4 w-4 mr-2" />
+              Create New Account
+            </Button>
+>>>>>>> 28e3f874c115286746c16f0076cc7caf56892f7e
           </CardContent>
         </Card>
 
@@ -240,6 +287,72 @@ export function AuthScreen({ onLogin }) {
     );
   }
 
+<<<<<<< HEAD
+=======
+  if (showRegister) {
+    return (
+      <div className="p-6 min-h-screen flex flex-col justify-center">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-primary rounded-2xl mx-auto mb-4 flex items-center justify-center">
+            <UserPlus className="h-8 w-8 text-primary-foreground" />
+          </div>
+          <h1 className="text-2xl mb-2">Create Account</h1>
+          <p className="text-muted-foreground">{email}</p>
+        </div>
+
+        <Card>
+          <CardContent className="space-y-4 pt-6">
+            <Input
+              id="name"
+              name="name"
+              type="text"
+              placeholder="Full Name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <Input
+              id="phone"
+              name="phone"
+              type="tel"
+              placeholder="Phone Number (Optional)"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              placeholder="Create Password (min 8 characters)"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            {error && (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            {success && (
+              <Alert>
+                <AlertDescription>{success}</AlertDescription>
+              </Alert>
+            )}
+            <Button onClick={handleRegister} className="w-full">
+              Create Account
+            </Button>
+            <Button 
+              variant="outline" 
+              onClick={() => setShowRegister(false)} 
+              className="w-full"
+            >
+              Back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+>>>>>>> 28e3f874c115286746c16f0076cc7caf56892f7e
   return (
     <div className="p-6 min-h-screen flex flex-col justify-center">
       <div className="text-center mb-8">
@@ -275,6 +388,20 @@ export function AuthScreen({ onLogin }) {
           >
             Back
           </Button>
+<<<<<<< HEAD
+=======
+          <Button 
+            variant="ghost" 
+            onClick={() => {
+              setShowLogin(false);
+              setShowRegister(true);
+            }} 
+            className="w-full"
+          >
+            <UserPlus className="h-4 w-4 mr-2" />
+            Don't have an account? Create one
+          </Button>
+>>>>>>> 28e3f874c115286746c16f0076cc7caf56892f7e
         </CardContent>
       </Card>
     </div>

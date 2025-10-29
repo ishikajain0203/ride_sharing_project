@@ -3,12 +3,44 @@ export interface LoginResponse {
 }
 
 export interface RegisterResponse {
+<<<<<<< HEAD
   user_id: string;
   email: string;
+=======
+  message: string;
+  user: {
+    user_id: string;
+    email: string;
+    name: string;
+    role: string;
+  };
+  token: string;
+>>>>>>> 28e3f874c115286746c16f0076cc7caf56892f7e
 }
 
 const API_BASE = ""; // relative to same origin proxy, e.g., /api
 
+<<<<<<< HEAD
+=======
+export async function register(name: string, email: string, password: string, phone?: string): Promise<RegisterResponse> {
+  const res = await fetch(`${API_BASE}/api/auth/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, email, password, phone }),
+  });
+
+  if (!res.ok) {
+    let message = "Registration failed";
+    try {
+      const data = await res.json();
+      message = data?.message || data?.error || message;
+    } catch {}
+    throw new Error(message);
+  }
+  return res.json();
+}
+
+>>>>>>> 28e3f874c115286746c16f0076cc7caf56892f7e
 export async function login(email: string, password: string): Promise<LoginResponse> {
   const res = await fetch(`${API_BASE}/api/auth/login`, {
     method: "POST",
@@ -27,6 +59,7 @@ export async function login(email: string, password: string): Promise<LoginRespo
   return res.json();
 }
 
+<<<<<<< HEAD
 export async function register(name: string, email: string, password: string, phone?: string): Promise<RegisterResponse> {
   const res = await fetch(`${API_BASE}/api/auth/register`, {
     method: "POST",
@@ -53,6 +86,8 @@ export async function register(name: string, email: string, password: string, ph
   return res.json();
 }
 
+=======
+>>>>>>> 28e3f874c115286746c16f0076cc7caf56892f7e
 export function setAuthToken(token: string) {
   localStorage.setItem("auth_token", token);
 }
