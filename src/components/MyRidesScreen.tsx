@@ -17,7 +17,7 @@ import {
   XCircle,
   MapPinned
 } from 'lucide-react';
-import { fetchMyRides } from '@/utils/api';
+import { fetchMyRides, authHeaders, emitRidesUpdated } from '@/utils/api';
 
 export function MyRidesScreen({ onNavigate, onRideSelect, onManageRide }) {
   const [selectedTab, setSelectedTab] = useState('booked');
@@ -31,19 +31,22 @@ export function MyRidesScreen({ onNavigate, onRideSelect, onManageRide }) {
         const data = await fetchMyRides();
         const toCard = (r: any) => ({
           id: r.ride_id,
-          driver: 'You',
+          driver: r.driver?.name || 'You',
           driverRating: 4.7,
           from: r.start_location,
           to: r.end_location,
           date: new Date(r.start_date).toLocaleDateString(),
           time: new Date(r.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           fare: `₹${Number(r.total_fare)}`,
-          status: r.status,
-          participants: 0,
+          status: r.status === 'open' ? 'upcoming' : r.status,
+          participants: r.participants?.filter(p => p.status === 'booked').length || 0,
           maxParticipants: 4,
           vehicleType: r.vehicle?.vehicle_type || 'Car',
-          vehicleNumber: '—',
-          passengers: [],
+          vehicleNumber: r.vehicle?.vehicle_number || '—',
+          passengers: r.participants?.filter(p => p.status === 'booked').map(p => ({
+            name: p.user?.name || 'Unknown',
+            rating: 4.5
+          })) || [],
         });
         setBookedRides((data.joined || []).map(toCard));
         setCreatedRides((data.hosted || []).map(toCard));
@@ -62,19 +65,22 @@ export function MyRidesScreen({ onNavigate, onRideSelect, onManageRide }) {
         const data = await fetchMyRides();
         const toCard = (r: any) => ({
           id: r.ride_id,
-          driver: 'You',
+          driver: r.driver?.name || 'You',
           driverRating: 4.7,
           from: r.start_location,
           to: r.end_location,
           date: new Date(r.start_date).toLocaleDateString(),
           time: new Date(r.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
           fare: `₹${Number(r.total_fare)}`,
-          status: r.status,
-          participants: 0,
+          status: r.status === 'open' ? 'upcoming' : r.status,
+          participants: r.participants?.filter(p => p.status === 'booked').length || 0,
           maxParticipants: 4,
           vehicleType: r.vehicle?.vehicle_type || 'Car',
-          vehicleNumber: '—',
-          passengers: [],
+          vehicleNumber: r.vehicle?.vehicle_number || '—',
+          passengers: r.participants?.filter(p => p.status === 'booked').map(p => ({
+            name: p.user?.name || 'Unknown',
+            rating: 4.5
+          })) || [],
         });
         setBookedRides((data.joined || []).map(toCard));
         setCreatedRides((data.hosted || []).map(toCard));
@@ -90,23 +96,8 @@ export function MyRidesScreen({ onNavigate, onRideSelect, onManageRide }) {
     };
   }, []);
 
-  // Active ride (currently in progress)
-  const activeRide = {
-    id: 6,
-    driver: "Priya Singh",
-    driverRating: 4.8,
-    from: "JKLU Campus",
-    to: "Pink City",
-    time: "Now",
-    fare: "₹150",
-    status: "active",
-    participants: 3,
-    maxParticipants: 4,
-    vehicleType: "Car",
-    vehicleNumber: "RJ 14 AB 1234",
-    currentLocation: "En route to pickup",
-    estimatedArrival: "5 mins"
-  };
+  // Find active ride from actual data
+  const activeRide = [...bookedRides, ...createdRides].find(ride => ride.status === 'active');
 
   const getStatusBadge = (status) => {
     switch (status) {
@@ -138,10 +129,50 @@ export function MyRidesScreen({ onNavigate, onRideSelect, onManageRide }) {
     }
   };
 
-  const handleCancelRide = (rideId) => {
-    // Handle ride cancellation
-    console.log('Cancelling ride:', rideId);
-    // In a real app, this would call an API
+  const handleCancelRide = async (rideId) => {
+    try {
+      const response = await fetch('/api/rides/cancel', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...authHeaders()
+        },
+        body: JSON.stringify({ ride_id: rideId })
+      });
+      
+      if (response.ok) {
+        // Refresh the rides data
+        const data = await fetchMyRides();
+        const toCard = (r: any) => ({
+          id: r.ride_id,
+          driver: r.driver?.name || 'You',
+          driverRating: 4.7,
+          from: r.start_location,
+          to: r.end_location,
+          date: new Date(r.start_date).toLocaleDateString(),
+          time: new Date(r.start_time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          fare: `₹${Number(r.total_fare)}`,
+          status: r.status === 'open' ? 'upcoming' : r.status,
+          participants: r.participants?.filter(p => p.status === 'booked').length || 0,
+          maxParticipants: 4,
+          vehicleType: r.vehicle?.vehicle_type || 'Car',
+          vehicleNumber: r.vehicle?.vehicle_number || '—',
+          passengers: r.participants?.filter(p => p.status === 'booked').map(p => ({
+            name: p.user?.name || 'Unknown',
+            rating: 4.5
+          })) || [],
+        });
+        setBookedRides((data.joined || []).map(toCard));
+        setCreatedRides((data.hosted || []).map(toCard));
+        
+        // Emit event to update other components
+        emitRidesUpdated();
+      } else {
+        console.error('Failed to cancel ride');
+      }
+    } catch (error) {
+      console.error('Error cancelling ride:', error);
+    }
   };
 
   const handleTrackRide = (ride) => {
@@ -164,8 +195,7 @@ export function MyRidesScreen({ onNavigate, onRideSelect, onManageRide }) {
       </div>
 
       {/* Active Ride Banner */}
-      {/* Placeholder for active ride - could compute from my rides */}
-      {false && (
+      {activeRide && (
         <Card className="mb-4 border-2 border-green-500 bg-green-50">
           <CardHeader className="pb-3">
             <div className="flex justify-between items-center">
@@ -233,7 +263,14 @@ export function MyRidesScreen({ onNavigate, onRideSelect, onManageRide }) {
 
         {/* Booked Rides Tab */}
         <TabsContent value="booked" className="space-y-3">
-          {bookedRides.length === 0 ? (
+          {loading ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-sm text-muted-foreground">Loading your rides...</p>
+              </CardContent>
+            </Card>
+          ) : bookedRides.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
                 <Car className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
@@ -389,7 +426,14 @@ export function MyRidesScreen({ onNavigate, onRideSelect, onManageRide }) {
 
         {/* Created Rides Tab */}
         <TabsContent value="created" className="space-y-3">
-          {createdRides.length === 0 ? (
+          {loading ? (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+                <p className="text-sm text-muted-foreground">Loading your rides...</p>
+              </CardContent>
+            </Card>
+          ) : createdRides.length === 0 ? (
             <Card>
               <CardContent className="p-8 text-center">
                 <Car className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
