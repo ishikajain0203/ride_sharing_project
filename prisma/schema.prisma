@@ -1,0 +1,200 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums
+enum UserRole {
+  student
+  committee_admin
+}
+
+enum RideStatus {
+  open
+  booked
+  completed
+  cancelled
+}
+
+enum ParticipantStatus {
+  booked
+  cancelled
+  completed
+}
+
+enum ComfortFlag {
+  comfortable
+  uncomfortable
+}
+
+enum CommitteeActionType {
+  warning
+  penalty
+  ban
+  feedback_review
+}
+
+// Models
+model User {
+  user_id           String    @id @default(cuid())
+  name              String
+  email             String    @unique
+  phone             String?
+  role              UserRole  @default(student)
+  credibility_score Int       @default(100)
+  rating            Decimal?  @db.Decimal(3,2)
+  cancellation_count Int      @default(0)
+  password_hash     String
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  // Relations
+  vehicle           Vehicle?
+  ridesHosted       Ride[]        @relation("UserRidesHosted")
+  rideParticipants  RideParticipant[]
+  payments          Payment[]     @relation("UserPayments")
+  feedbackGiven     Feedback[]    @relation("FeedbackGiven")
+  feedbackReceived  Feedback[]    @relation("FeedbackReceived")
+  sosTriggers       SOS_Log[]     @relation("UserSOSTriggers")
+  committeeActions  Committee_Action[]
+  sosInvolved       SOS_Involved[]
+}
+
+model Vehicle {
+  vehicle_id  String  @id @default(cuid())
+  user_id     String  @unique
+  vehicle_type String
+
+  user   User   @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  rides  Ride[]
+}
+
+model Ride {
+  ride_id        String      @id @default(cuid())
+  driver_id      String
+  vehicle_id     String?
+  start_location String
+  end_location   String
+  start_date     DateTime    // date portion used
+  start_time     DateTime    // time portion used
+  total_fare     Decimal     @db.Decimal(10,2)
+  status         RideStatus  @default(open)
+  created_at     DateTime    @default(now())
+  updated_at     DateTime    @updatedAt
+
+  driver         User        @relation("UserRidesHosted", fields: [driver_id], references: [user_id], onDelete: Restrict)
+  vehicle        Vehicle?    @relation(fields: [vehicle_id], references: [vehicle_id])
+  participants   RideParticipant[]
+  payments       Payment[]
+  feedbacks      Feedback[]
+  sosLogs        SOS_Log[]
+
+  @@index([driver_id])
+  @@index([vehicle_id])
+}
+
+model RideParticipant {
+  id            String            @id @default(cuid())
+  ride_id       String
+  user_id       String
+  share_fare    Decimal           @db.Decimal(10,2)
+  booking_time  DateTime          @default(now())
+  status        ParticipantStatus @default(booked)
+
+  ride          Ride   @relation(fields: [ride_id], references: [ride_id], onDelete: Cascade)
+  user          User   @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([ride_id, user_id])
+  @@index([user_id])
+  @@index([ride_id])
+}
+
+model Payment {
+  payment_id String   @id @default(cuid())
+  ride_id    String
+  payer_id   String
+  amount     Decimal  @db.Decimal(10,2)
+  paid_at    DateTime @default(now())
+
+  ride       Ride  @relation(fields: [ride_id], references: [ride_id], onDelete: Cascade)
+  payer      User  @relation("UserPayments", fields: [payer_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([ride_id, payer_id])
+  @@index([payer_id])
+}
+
+model Feedback {
+  feedback_id  String       @id @default(cuid())
+  ride_id      String
+  giver_id     String
+  receiver_id  String
+  rating       Int
+  comfort_flag ComfortFlag
+  comments     String?
+  created_at   DateTime     @default(now())
+
+  ride         Ride @relation(fields: [ride_id], references: [ride_id], onDelete: Cascade)
+  giver        User @relation("FeedbackGiven", fields: [giver_id], references: [user_id], onDelete: Cascade)
+  receiver     User @relation("FeedbackReceived", fields: [receiver_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([ride_id, giver_id, receiver_id])
+  @@index([giver_id])
+  @@index([receiver_id])
+}
+
+model SOS_Log {
+  sos_id            String   @id @default(cuid())
+  ride_id           String
+  trigger_user_id   String
+  trigger_time      DateTime @default(now())
+  location_at_trigger String
+  status            String   @default("open")
+
+  ride            Ride @relation(fields: [ride_id], references: [ride_id], onDelete: Cascade)
+  trigger_user    User @relation("UserSOSTriggers", fields: [trigger_user_id], references: [user_id], onDelete: Cascade)
+  involved_users  SOS_Involved[]
+  committeeActions Committee_Action[]
+
+  @@index([ride_id])
+  @@index([trigger_user_id])
+}
+
+model SOS_Involved {
+  id      String @id @default(cuid())
+  sos_id  String
+  user_id String
+
+  sos   SOS_Log @relation(fields: [sos_id], references: [sos_id], onDelete: Cascade)
+  user  User    @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([sos_id, user_id])
+}
+
+model Committee_Action {
+  action_id   String               @id @default(cuid())
+  sos_id      String?
+  user_id     String
+  action_type CommitteeActionType
+  action_date DateTime             @default(now())
+  notes       String?
+
+  sos   SOS_Log? @relation(fields: [sos_id], references: [sos_id], onDelete: SetNull)
+  user  User    @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([sos_id])
+  @@index([user_id])
+}
+
+// Optional: email domain constraint can be enforced at DB level via CHECK
+// Prisma preview features do not yet support CHECK directly on string, so keep in app logic.
