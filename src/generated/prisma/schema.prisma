@@ -1,0 +1,165 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  student
+  committee_admin
+}
+
+enum RideStatus {
+  open
+  booked
+  completed
+  cancelled
+}
+
+model User {
+  user_id            String   @id @default(cuid())
+  name               String
+  email              String   @unique
+  phone              String?
+  role               UserRole @default(student)
+  credibility_score  Int      @default(100)
+  rating             Decimal? @db.Decimal(3, 2)
+  cancellation_count Int      @default(0)
+  password_hash      String
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  // Relations
+  ridesHosted      Ride[]             @relation("UserRidesHosted")
+  vehicle          Vehicle?
+  // Restored relations for app features
+  rideParticipants RideParticipant[]
+  payments         Payment[]          @relation("UserPayments")
+  feedbackGiven    Feedback[]         @relation("FeedbackGiver")
+  feedbackReceived Feedback[]         @relation("FeedbackReceiver")
+  cancellations    RideCancellation[]
+  sosTriggers      SOS_Log[]          @relation("UserSOSTriggers")
+  sosInvolved      SOS_Involved[]     @relation("UserSOSInvolved")
+}
+
+model Vehicle {
+  vehicle_id   String @id @default(cuid())
+  user_id      String @unique
+  vehicle_type String
+
+  user  User   @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+  rides Ride[]
+}
+
+model Ride {
+  ride_id        String     @id @default(cuid())
+  driver_id      String
+  vehicle_id     String?
+  start_location String
+  end_location   String
+  start_date     DateTime // date portion used
+  start_time     DateTime // time portion used
+  total_fare     Decimal    @db.Decimal(10, 2)
+  max_passengers Int        @default(4)
+  status         RideStatus @default(open)
+  created_at     DateTime   @default(now())
+  updated_at     DateTime   @updatedAt
+
+  driver        User               @relation("UserRidesHosted", fields: [driver_id], references: [user_id], onDelete: Restrict)
+  vehicle       Vehicle?           @relation(fields: [vehicle_id], references: [vehicle_id])
+  // Restored relations
+  participants  RideParticipant[]
+  payments      Payment[]
+  feedbacks     Feedback[]
+  cancellations RideCancellation[]
+  sos_logs      SOS_Log[]
+
+  @@index([driver_id])
+  @@index([vehicle_id])
+}
+
+// Restored supporting models used across routes/services
+model RideParticipant {
+  id           String   @id @default(cuid())
+  ride_id      String
+  user_id      String
+  share_fare   Decimal? @db.Decimal(10, 2)
+  status       String   @default("booked")
+  booking_time DateTime @default(now())
+
+  ride Ride @relation(fields: [ride_id], references: [ride_id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([ride_id, user_id], name: "ride_id_user_id")
+  @@index([user_id])
+}
+
+model RideCancellation {
+  id           String   @id @default(cuid())
+  ride_id      String
+  user_id      String
+  cancelled_at DateTime @default(now())
+
+  ride Ride @relation(fields: [ride_id], references: [ride_id], onDelete: Cascade)
+  user User @relation(fields: [user_id], references: [user_id], onDelete: Cascade)
+}
+
+model Payment {
+  payment_id String   @id @default(cuid())
+  ride_id    String
+  payer_id   String
+  amount     Decimal  @db.Decimal(10, 2)
+  paid_at    DateTime @default(now())
+
+  ride  Ride @relation(fields: [ride_id], references: [ride_id], onDelete: Cascade)
+  payer User @relation("UserPayments", fields: [payer_id], references: [user_id], onDelete: Cascade)
+
+  @@unique([ride_id, payer_id], name: "ride_id_payer_id")
+  @@index([payer_id])
+}
+
+model Feedback {
+  feedback_id  String   @id @default(cuid())
+  ride_id      String
+  giver_id     String
+  receiver_id  String
+  rating       Int
+  comfort_flag String
+  comments     String?
+  created_at   DateTime @default(now())
+
+  ride     Ride @relation(fields: [ride_id], references: [ride_id], onDelete: Cascade)
+  giver    User @relation("FeedbackGiver", fields: [giver_id], references: [user_id], onDelete: Cascade)
+  receiver User @relation("FeedbackReceiver", fields: [receiver_id], references: [user_id], onDelete: Cascade)
+
+  @@index([giver_id])
+  @@index([receiver_id])
+}
+
+model SOS_Log {
+  sos_id              String   @id @default(cuid())
+  ride_id             String
+  trigger_user_id     String
+  location_at_trigger String
+  status              String   @default("open")
+  trigger_time        DateTime @default(now())
+
+  ride           Ride           @relation(fields: [ride_id], references: [ride_id], onDelete: Cascade)
+  trigger_user   User           @relation("UserSOSTriggers", fields: [trigger_user_id], references: [user_id], onDelete: Cascade)
+  involved_users SOS_Involved[]
+}
+
+model SOS_Involved {
+  id      String @id @default(cuid())
+  sos_id  String
+  user_id String
+
+  sos  SOS_Log @relation(fields: [sos_id], references: [sos_id], onDelete: Cascade)
+  user User    @relation("UserSOSInvolved", fields: [user_id], references: [user_id], onDelete: Cascade)
+
+  @@index([user_id])
+}

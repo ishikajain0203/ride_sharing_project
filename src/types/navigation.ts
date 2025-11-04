@@ -1,0 +1,15 @@
+export type Screen = 
+  | 'auth' 
+  | 'home' 
+  | 'createRide' 
+  | 'findRides' 
+  | 'rideDetails' 
+  | 'rides' 
+  | 'manageRide' 
+  | 'profile' 
+  | 'editProfile'
+  | 'sos' 
+  | 'payment' 
+  | 'settings'
+  | 'feedback'
+  | 'myRides';
