@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { z } from "zod";
-import { PrismaClient } from "../generated/prisma/index.js";
+import { PrismaClient, Prisma, RideStatus } from "../generated/prisma/index.js";
 import { requireAuth } from "../middleware/auth.js";
 
 const prisma = new PrismaClient();
@@ -142,12 +142,30 @@ router.post("/join", requireAuth, async (req, res, next) => {
 router.get("/search", requireAuth, async (req, res, next) => {
   try {
     const { start, end, date } = req.query as Record<string, string>;
+
+    const now = new Date();
+    now.setSeconds(0);
+    now.setMilliseconds(0);
+
+    const searchDate = date ? new Date(date) : now;
+    searchDate.setHours(0, 0, 0, 0); // Normalize to start of the day for date comparison
+
     const rides = await prisma.ride.findMany({
       where: {
         status: "open",
         ...(start ? { start_location: { contains: start, mode: "insensitive" } } : {}),
         ...(end ? { end_location: { contains: end, mode: "insensitive" } } : {}),
-        ...(date ? { start_date: { gte: new Date(date) } } : {}),
+        // Filter for rides that start in the future or today after the current time
+        start_date: { gte: searchDate },
+        AND: {
+          OR: [
+            { start_date: { gt: searchDate } }, // Rides on future dates
+            {
+              start_date: searchDate, // Rides on today's date
+              start_time: { gte: now } // Only show if start_time is greater than or equal to current time
+            }
+          ]
+        }
       },
       include: {
         driver: {
@@ -180,6 +198,55 @@ router.get("/search", requireAuth, async (req, res, next) => {
   }
 });
 
+const transitionSchema = z.object({ ride_id: z.string() });
+
+// Start ride (host only)
+router.post("/start", requireAuth, async (req, res, next) => {
+  try {
+    const { ride_id } = transitionSchema.parse(req.body);
+    const ride = await prisma.ride.findUnique({ where: { ride_id } });
+    if (!ride) return res.status(404).json({ error: "RideNotFound" });
+    if (ride.driver_id !== req.auth!.userId) return res.status(403).json({ error: "NotRideOwner" });
+    if (ride.status !== "open") return res.status(400).json({ error: "InvalidState" });
+
+    const now = new Date();
+    const rideStartDateTime = new Date(
+      ride.start_date.getFullYear(),
+      ride.start_date.getMonth(),
+      ride.start_date.getDate(),
+      ride.start_time.getHours(),
+      ride.start_time.getMinutes(),
+      ride.start_time.getSeconds(),
+      ride.start_time.getMilliseconds()
+    );
+
+    if (now < rideStartDateTime) {
+      return res.status(400).json({ error: "Can't start before start time" });
+    }
+
+    const updated = await prisma.ride.update({ where: { ride_id }, data: { status: RideStatus.active } });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Complete ride (host only)
+router.post("/complete", requireAuth, async (req, res, next) => {
+  try {
+    const { ride_id } = transitionSchema.parse(req.body);
+    const ride = await prisma.ride.findUnique({ where: { ride_id } });
+    if (!ride) return res.status(404).json({ error: "RideNotFound" });
+    if (ride.driver_id !== req.auth!.userId) return res.status(403).json({ error: "NotRideOwner" });
+    if (ride.status !== RideStatus.active) return res.status(400).json({ error: "InvalidState" });
+
+    const updated = await prisma.ride.update({ where: { ride_id }, data: { status: RideStatus.completed } });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+
 const cancelSchema = z.object({ ride_id: z.string() });
 
 router.post("/cancel", requireAuth, async (req, res, next) => {
@@ -191,9 +258,9 @@ router.post("/cancel", requireAuth, async (req, res, next) => {
     if (!rp) {
       const ride = await prisma.ride.findUnique({ where: { ride_id }, include: { participants: { where: { status: "booked" }, orderBy: { booking_time: "asc" } } } });
       if (!ride) return res.status(404).json({ error: "RideNotFound" });
-      if (ride.driver_id !== req.auth!.userId) return res.status(404).json({ error: "NotParticipant" });
-
       // Driver is cancelling their own created ride
+      if (ride.driver_id !== req.auth!.userId) return res.status(403).json({ error: "NotRideOwner" });
+
       const now = new Date();
       const startDateTime = new Date(ride.start_date);
       startDateTime.setHours(new Date(ride.start_time).getHours(), new Date(ride.start_time).getMinutes());
@@ -300,11 +367,23 @@ router.get("/mine", requireAuth, async (req, res, next) => {
   try {
     const userId = req.auth!.userId;
     
+    const now = new Date();
+    now.setSeconds(0);
+    now.setMilliseconds(0);
+
     // Get hosted rides with full details
     const hosted = await prisma.ride.findMany({
       where: { 
         driver_id: userId,
-        NOT: { status: "cancelled" }  // Exclude cancelled rides
+        NOT: { status: "cancelled" },  // Exclude cancelled rides
+        // Filter for rides that start in the future or today after the current time
+        // OR: [
+        //   { start_date: { gt: now } }, // Rides on future dates
+        //   {
+        //     start_date: now, // Rides on today's date
+        //     start_time: { gte: now } // Only show if start_time is greater than or equal to current time
+        //   }
+        // ]
       },
       include: {
         vehicle: true,
@@ -331,7 +410,15 @@ router.get("/mine", requireAuth, async (req, res, next) => {
         user_id: userId,
         status: { in: ["booked"] }, // exclude cancelled participation
         ride: {
-          NOT: { status: "cancelled" }
+          NOT: { status: "cancelled" },
+          // Filter for rides that start in the future or today after the current time
+          OR: [
+            { start_date: { gt: now } }, // Rides on future dates
+            {
+              start_date: now, // Rides on today's date
+              start_time: { gte: now } // Only show if start_time is greater than or equal to current time
+            }
+          ]
         }
       },
       include: {

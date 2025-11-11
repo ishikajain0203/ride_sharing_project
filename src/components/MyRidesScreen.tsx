@@ -197,6 +197,11 @@ export function MyRidesScreen({ onNavigate, onRideSelect, onManageRide }: MyRide
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <h1 className="text-xl">My Rides</h1>
+        <div className="ml-auto">
+          <Button variant="outline" size="sm" onClick={() => onNavigate('completedRides')}>
+            Completed
+          </Button>
+        </div>
       </div>
 
       {/* Active Ride Banner */}

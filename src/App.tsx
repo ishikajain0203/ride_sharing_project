@@ -11,6 +11,7 @@ import { EditProfileScreen } from "./components/EditProfileScreen";
 import { SOSScreen } from "./components/SOSScreen";
 import { PaymentScreen } from "./components/PaymentScreen";
 import { FeedbackScreen } from "./components/FeedbackScreen";
+import { CompletedRidesScreen } from "./components/CompletedRidesScreen";
 import { Navigation } from "./components/Navigation";
 import { fetchMe } from "./utils/api";
 
@@ -251,6 +252,13 @@ export default function App() {
             onNavigate={handleNavigation as (screen: string) => void}
             onRideSelect={handleRideSelect}
             onManageRide={handleManageRide}
+          />
+        );
+      case "completedRides":
+        return (
+          <CompletedRidesScreen
+            onNavigate={handleNavigation as (screen: string) => void}
+            onRideSelect={handleRideSelect}
           />
         );
       case "manageRide":

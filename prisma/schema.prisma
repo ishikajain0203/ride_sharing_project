@@ -14,11 +14,12 @@ enum UserRole {
 }
 
 enum RideStatus {
-  open
-  booked
-  completed
-  cancelled
-}
+      open
+      booked
+      completed
+      cancelled
+      active
+    }
 
 model User {
   user_id            String    @id @default(cuid())

@@ -224,3 +224,37 @@ export async function cancelRide(rideId: string) {
   emitRidesUpdated();
   return res.json();
 }
+
+export async function startRide(rideId: string) {
+  const res = await fetch(`${API_BASE}/rides/start`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders()
+    },
+    body: JSON.stringify({ ride_id: rideId })
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: 'Failed to start ride' }));
+    throw new Error(error.error || 'Failed to start ride');
+  }
+  emitRidesUpdated();
+  return res.json();
+}
+
+export async function completeRide(rideId: string) {
+  const res = await fetch(`${API_BASE}/rides/complete`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...authHeaders()
+    },
+    body: JSON.stringify({ ride_id: rideId })
+  });
+  if (!res.ok) {
+    const error = await res.json().catch(() => ({ error: 'Failed to complete ride' }));
+    throw new Error(error.error || 'Failed to complete ride');
+  }
+  emitRidesUpdated();
+  return res.json();
+}

@@ -75,7 +75,8 @@ export const RideStatus: {
   open: 'open',
   booked: 'booked',
   completed: 'completed',
-  cancelled: 'cancelled'
+  cancelled: 'cancelled',
+  active: 'active'
 };
 
 export type RideStatus = (typeof RideStatus)[keyof typeof RideStatus]

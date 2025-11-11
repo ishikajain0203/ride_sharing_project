@@ -20,7 +20,7 @@ import {
   CheckCircle,
   Navigation as NavigationIcon
 } from 'lucide-react';
-import {
+import { 
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -31,6 +31,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "./ui/alert-dialog";
+import { startRide, completeRide, emitRidesUpdated } from '../utils/api';
 
 export function ManageRideScreen({ ride, onNavigate, onBack }) {
   const [rideStatus, setRideStatus] = useState(ride?.status || 'upcoming');
@@ -68,19 +69,31 @@ export function ManageRideScreen({ ride, onNavigate, onBack }) {
     ]
   };
 
-  const handleStartRide = () => {
-    setRideStatus('active');
-    // In a real app, this would update the backend
-    console.log('Starting ride:', rideData.id);
+  const handleStartRide = async () => {
+    try {
+      if (!ride?.ride_id && !ride?.id) return;
+      const id = (ride?.ride_id || ride?.id) as string;
+      await startRide(id);
+      setRideStatus('active');
+      emitRidesUpdated();
+    } catch (e: any) {
+      alert(e?.message || 'Failed to start ride');
+    }
   };
 
-  const handleCompleteRide = () => {
-    setRideStatus('completed');
-    // In a real app, this would update the backend
-    console.log('Completing ride:', rideData.id);
-    setTimeout(() => {
-      onNavigate('payment');
-    }, 1000);
+  const handleCompleteRide = async () => {
+    try {
+      if (!ride?.ride_id && !ride?.id) return;
+      const id = (ride?.ride_id || ride?.id) as string;
+      await completeRide(id);
+      setRideStatus('completed');
+      emitRidesUpdated();
+      setTimeout(() => {
+        onNavigate('payment');
+      }, 500);
+    } catch (e: any) {
+      alert(e?.message || 'Failed to complete ride');
+    }
   };
 
   const handleCancelRide = () => {

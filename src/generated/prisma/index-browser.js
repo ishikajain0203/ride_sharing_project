@@ -228,7 +228,8 @@ exports.RideStatus = exports.$Enums.RideStatus = {
   open: 'open',
   booked: 'booked',
   completed: 'completed',
-  cancelled: 'cancelled'
+  cancelled: 'cancelled',
+  active: 'active'
 };
 
 exports.Prisma.ModelName = {
